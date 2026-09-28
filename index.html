@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Peta Komplek Memori Interaktif</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            pastel: {
+              pink: '#FFB7B2',
+              pinkLight: '#FFF0F3',
+              yellow: '#FFEDAA',
+              green: '#C7CEEA',
+              mint: '#E2F0CB',
+              mintDark: '#93C572',
+              blue: '#B5EAD7',
+              purple: '#E0BBE4',
+              brown: '#8D6E63',
+              cream: '#FFF9E6',
+              border: '#E8D5C4'
+            }
+          },
+          fontFamily: {
+            fredoka: ['Fredoka', 'sans-serif'],
+            quicksand: ['Quicksand', 'sans-serif']
+          },
+          boxShadow: {
+            'cute': '0 8px 0px 0px rgba(220, 190, 180, 0.4), 0 12px 20px rgba(0,0,0,0.08)',
+            'cute-sm': '0 4px 0px 0px rgba(220, 190, 180, 0.4)',
+            'cute-hover': '0 10px 0px 0px rgba(220, 190, 180, 0.5), 0 16px 25px rgba(0,0,0,0.12)',
+            'inner-soft': 'inner 0 4px 8px rgba(0,0,0,0.05)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Quicksand', sans-serif;
+      background-color: #FBF7F0;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    h1, h2, h3, h4, button, .font-heading {
+      font-family: 'Fredoka', sans-serif;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #FFF5EC;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #FFB7B2;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #FF9AA2;
+    }
+
+    /* Map Drag Cursor */
+    .map-viewport {
+      cursor: grab;
+    }
+    .map-viewport:active {
+      cursor: grabbing;
+    }
+
+    /* Floating Animation for Clouds & Elements */
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-12px) rotate(1deg); }
+    }
+    @keyframes swayTree {
+      0%, 100% { transform: rotate(-2deg); }
+      50% { transform: rotate(3deg); }
+    }
+    @keyframes pulsePin {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+    }
+    @keyframes bounceSubtle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .animate-float {
+      animation: floatSlow 6s ease-in-out infinite;
+    }
+    .animate-sway {
+      transform-origin: bottom center;
+      animation: swayTree 4s ease-in-out infinite;
+    }
+    .animate-pulse-pin {
+      animation: pulsePin 2s ease-in-out infinite;
+    }
+    .animate-bounce-subtle {
+      animation: bounceSubtle 2.5s ease-in-out infinite;
+    }
+
+    /* Canvas Map Overlay styling */
+    #mapCanvas {
+      touch-action: none;
+    }
+
+    /* Custom CSS Glassmorphism */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(8px);
+      border: 3px solid #FFF0F3;
+    }
+
+    /* Polaroids Styling */
+    .polaroid-frame {
+      background: white;
+      padding: 12px 12px 28px 12px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.08), 0 2px 5px rgba(0,0,0,0.05);
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .polaroid-frame:hover {
+      transform: scale(1.03) rotate(1deg);
+    }
+
+    /* Placement Pin Marker styling */
+    .placing-mode {
+      cursor: crosshair !important;
+    }
+
+    /* Tooltip arrow */
+    .tooltip-arrow::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 8px 8px 0;
+      border-style: solid;
+      border-color: #ffffff transparent;
+      display: block;
+      width: 0;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col relative text-slate-700">
+
+  <header class="absolute top-4 left-4 right-4 z-20 flex flex-wrap justify-between items-center gap-3 pointer-events-none">
+    <!-- Title Badge -->
+    <div class="pointer-events-auto bg-white/95 backdrop-blur-md px-5 py-3 rounded-3xl border-4 border-pastel-pinkLight shadow-cute flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-pastel-pink flex items-center justify-center text-white text-xl animate-bounce-subtle">
+        🏡
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-slate-800 tracking-wide flex items-center gap-2">
+          Komplek Memori <span class="text-xs px-2 py-0.5 bg-pastel-yellow text-amber-800 rounded-full font-bold">Cute Edition</span>
+        </h1>
+        <p class="text-xs text-slate-500 font-medium">Jelajahi kenangan manis di setiap sudut rumah!</p>
+      </div>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div class="pointer-events-auto flex items-center gap-2 bg-white/95 backdrop-blur-md p-2 rounded-3xl border-4 border-pastel-pinkLight shadow-cute">
+      <div class="relative">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input type="text" id="searchInput" placeholder="Cari rumah atau tempat..." 
+          class="pl-9 pr-3 py-1.5 bg-pastel-pinkLight/50 text-slate-700 text-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-pastel-pink w-40 sm:w-56 font-medium placeholder:text-slate-400">
+      </div>
+
+      <div class="h-6 w-0.5 bg-slate-200"></div>
+
+      <!-- Filter Buttons -->
+      <div class="flex gap-1" id="filterContainer">
+        <button onclick="setFilter('all')" data-filter="all" class="filter-btn active px-3 py-1.5 rounded-2xl text-xs font-bold transition-all bg-pastel-pink text-white shadow-cute-sm">Semua</button>
+        <button onclick="setFilter('rumah')" data-filter="rumah" class="filter-btn px-3 py-1.5 rounded-2xl text-xs font-bold transition-all bg-pastel-pinkLight text-slate-600 hover:bg-pastel-pink/20">🏠 Rumah</button>
+        <button onclick="setFilter('spot')" data-filter="spot" class="filter-btn px-3 py-1.5 rounded-2xl text-xs font-bold transition-all bg-pastel-pinkLight text-slate-600 hover:bg-pastel-pink/20">🌸 Spot</button>
+        <button onclick="setFilter('cafe')" data-filter="cafe" class="filter-btn px-3 py-1.5 rounded-2xl text-xs font-bold transition-all bg-pastel-pinkLight text-slate-600 hover:bg-pastel-pink/20">☕ Cafe</button>
+      </div>
+    </div>
+
+    <!-- Actions & Audio Controls -->
+    <div class="pointer-events-auto flex items-center gap-2">
+      <!-- Add House Button -->
+      <button id="addHouseBtn" onclick="toggleAddHouseMode()" class="bg-pastel-mintDark hover:bg-emerald-600 text-white font-bold px-4 py-2.5 rounded-3xl border-3 border-emerald-300 shadow-cute flex items-center gap-2 transition-all hover:scale-105 active:scale-95 text-sm">
+        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+        <span>Tambah Rumah</span>
+      </button>
+
+      <!-- Audio BGM Button -->
+      <button id="bgmToggle" onclick="toggleAudio()" class="w-11 h-11 bg-white hover:bg-pastel-pinkLight rounded-2xl border-3 border-pastel-pinkLight shadow-cute flex items-center gap-2 justify-center text-slate-700 transition-all hover:scale-105 active:scale-95" title="Musik Latar">
+        <i data-lucide="music" class="w-5 h-5 text-pastel-pink"></i>
+      </button>
+    </div>
+  </header>
+
+  <div id="placementBanner" class="hidden absolute top-24 left-1/2 -translate-x-1/2 z-30 bg-amber-400 text-slate-900 font-bold px-6 py-3 rounded-full border-4 border-white shadow-lg flex items-center gap-3 animate-bounce">
+    <span class="text-xl">📍</span>
+    <span>Klik di area manapun pada peta komplek untuk menaruh rumah baru!</span>
+    <button onclick="cancelAddHouseMode()" class="ml-2 bg-slate-800 text-white px-3 py-1 rounded-full text-xs hover:bg-slate-700">Batal</button>
+  </div>
+
+  <div class="absolute bottom-6 right-6 z-20 flex flex-col gap-2">
+    <button onclick="zoomMap(0.15)" class="w-11 h-11 bg-white hover:bg-pastel-pinkLight rounded-2xl border-3 border-pastel-pinkLight shadow-cute flex items-center justify-center text-slate-700 font-bold text-xl transition-all hover:scale-105 active:scale-95" title="Zoom In">+</button>
+    <button onclick="zoomMap(-0.15)" class="w-11 h-11 bg-white hover:bg-pastel-pinkLight rounded-2xl border-3 border-pastel-pinkLight shadow-cute flex items-center justify-center text-slate-700 font-bold text-xl transition-all hover:scale-105 active:scale-95" title="Zoom Out">-</button>
+    <button onclick="resetMapTransform()" class="w-11 h-11 bg-white hover:bg-pastel-pinkLight rounded-2xl border-3 border-pastel-pinkLight shadow-cute flex items-center justify-center text-slate-700 transition-all hover:scale-105 active:scale-95" title="Reset Pandangan">
+      <i data-lucide="rotate-ccw" class="w-5 h-5 text-slate-600"></i>
+    </button>
+  </div>
+
+  <!-- Map Instructions Bottom Left Badge -->
+  <div class="absolute bottom-6 left-6 z-20 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-2xl border-2 border-pastel-pinkLight shadow-sm text-xs font-semibold text-slate-600 flex items-center gap-2 pointer-events-none">
+    <i data-lucide="hand" class="w-4 h-4 text-pastel-pink"></i>
+    <span>Klik & Drag untuk geser peta • Scroll untuk Zoom In/Out</span>
+  </div>
+
+  <main id="mapViewport" class="map-viewport w-full h-full relative overflow-hidden bg-emerald-100/60">
+    <!-- Map World Container that transforms (Scale & Translate) -->
+    <div id="mapWorld" class="absolute left-0 top-0 origin-top-left transition-transform duration-75">
+      <!-- Interactive SVG / HTML Canvas World -->
+      <canvas id="mapCanvas" class="block"></canvas>
+
+      <!-- Houses Pins Container (Positioned absolutely on top of map canvas) -->
+      <div id="pinsContainer" class="absolute inset-0 pointer-events-none">
+        <!-- Pins will be dynamically generated by JS -->
+      </div>
+    </div>
+  </main>
+
+  <div id="memoryModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300">
+    <div id="modalCard" class="bg-white rounded-3xl border-4 border-pastel-pinkLight shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col transform scale-90 transition-all duration-300 relative">
+      
+      <!-- Modal Header -->
+      <div class="bg-pastel-pinkLight px-6 py-4 flex items-center justify-between border-b-2 border-pastel-pink/20">
+        <div class="flex items-center gap-3">
+          <span id="modalIcon" class="text-3xl bg-white p-2 rounded-2xl shadow-sm">🏠</span>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="modalTitle" class="text-2xl font-bold text-slate-800">Nama Rumah</h2>
+              <span id="modalTag" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-pastel-pink text-white">Rumah</span>
+            </div>
+            <p id="modalSub" class="text-xs text-slate-500 font-medium flex items-center gap-1 mt-0.5">
+              <i data-lucide="map-pin" class="w-3.5 h-3.5 text-pastel-pink"></i>
+              <span id="modalCoords">Sektor A-1</span>
+            </p>
+          </div>
+        </div>
+
+        <button onclick="closeMemoryModal()" class="w-10 h-10 bg-white hover:bg-rose-100 rounded-2xl text-slate-500 hover:text-rose-500 flex items-center justify-center transition-all shadow-sm">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-6 overflow-y-auto space-y-6 flex-1 bg-gradient-to-b from-white to-pastel-pinkLight/20">
+        
+        <!-- Description / Memo Card -->
+        <div class="bg-pastel-cream border-2 border-amber-200/80 rounded-2xl p-4 shadow-sm relative">
+          <span class="absolute -top-3 left-4 bg-amber-300 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full">
+            📝 Catatan Kenangan
+          </span>
+          <p id="modalDescription" class="text-slate-700 text-sm leading-relaxed mt-1 font-medium">
+            Deskripsi kenangan indah di rumah ini...
+          </p>
+        </div>
+
+        <!-- Photo Gallery (Polaroid Slider Style) -->
+        <div>
+          <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+            <i data-lucide="image" class="w-4 h-4 text-pastel-pink"></i>
+            <span>Galeri Foto Kenangan</span>
+          </h3>
+
+          <div id="modalGallery" class="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x">
+            <!-- Dynamic Polaroid Photos inserted here -->
+          </div>
+        </div>
+
+        <!-- Video Player Section -->
+        <div id="modalVideoSection" class="hidden">
+          <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+            <i data-lucide="video" class="w-4 h-4 text-pastel-pink"></i>
+            <span>Video Kenangan Populer</span>
+          </h3>
+          <div class="rounded-2xl overflow-hidden border-3 border-pastel-pinkLight shadow-sm bg-black relative">
+            <video id="modalVideo" controls class="w-full max-h-64 object-contain">
+              <source id="modalVideoSource" src="" type="video/mp4">
+              Browser kamu tidak mendukung pemutaran video.
+            </video>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3.5 bg-white border-t-2 border-slate-100 flex items-center justify-between">
+        <button id="likeBtn" onclick="toggleLikeCurrentHouse()" class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-500 font-bold transition-all active:scale-95 border border-rose-200">
+          <i data-lucide="heart" class="w-5 h-5 fill-rose-500"></i>
+          <span id="modalLikesCount">0 Sukai</span>
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button onclick="deleteCurrentHouse()" id="deleteHouseBtn" class="text-slate-400 hover:text-rose-500 text-xs font-bold px-3 py-2 rounded-xl transition-all">
+            Hapus Tempat
+          </button>
+          <button onclick="closeMemoryModal()" class="px-5 py-2 rounded-2xl bg-pastel-pink hover:bg-rose-400 text-white font-bold shadow-cute-sm transition-all active:scale-95 text-sm">
+            Tutup
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="addHouseModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300">
+    <div class="bg-white rounded-3xl border-4 border-pastel-pinkLight shadow-2xl w-full max-w-lg overflow-hidden p-6 space-y-4 relative">
+      
+      <div class="flex justify-between items-center border-b pb-3">
+        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <span>✨</span> Tambah Rumah / Spot Kenangan Baru
+        </h2>
+        <button onclick="closeAddHouseModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="addHouseForm" onsubmit="saveNewHouse(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Nama Tempat / Rumah *</label>
+          <input type="text" id="newTitle" required placeholder="misal: Rumah Syifa & Syakira" 
+            class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm focus:border-pastel-pink focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Kategori *</label>
+            <select id="newCategory" class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm focus:border-pastel-pink focus:outline-none">
+              <option value="rumah">🏠 Rumah</option>
+              <option value="spot">🌸 Spot Kumpul</option>
+              <option value="cafe">☕ Cafe / Kedai</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Ikon Lucu *</label>
+            <select id="newIcon" class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm focus:border-pastel-pink focus:outline-none">
+              <option value="🏠">🏠 Rumah Merah</option>
+              <option value="🏡">🏡 Rumah Taman</option>
+              <option value="💒">💒 Istana Pink</option>
+              <option value="☕">☕ Cafe Unyu</option>
+              <option value="🌸">🌸 Taman Bunga</option>
+              <option value="🐱">🐱 Rumah Kucing</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Deskripsi / Kenangan *</label>
+          <textarea id="newDescription" rows="2" required placeholder="Tulis cerita manis atau kenangan di tempat ini..."
+            class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm focus:border-pastel-pink focus:outline-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">URL Foto (Bisa dipisah koma untuk banyak foto)</label>
+          <input type="text" id="newImageUrls" placeholder="https://images.unsplash.com/photo-1512917774080-9991f1c4c750" 
+            class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm focus:border-pastel-pink focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">URL Video (Opsional .mp4)</label>
+          <input type="text" id="newVideoUrl" placeholder="https://www.w3schools.com/html/mov_bbb.mp4" 
+            class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm focus:border-pastel-pink focus:outline-none">
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeAddHouseModal()" class="px-4 py-2 rounded-xl text-slate-500 font-bold text-xs hover:bg-slate-100">Batal</button>
+          <button type="submit" class="px-5 py-2 bg-pastel-pink hover:bg-rose-400 text-white font-bold rounded-xl shadow-cute-sm text-xs transition-all">Simpan Lokasi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Audio Synthesizer BGM Audio Player Generator using Web Audio API -->
+  <script>
+    let audioCtx = null;
+    let isBGMPlaying = false;
+    let bgmInterval = null;
+
+    function toggleAudio() {
+      const btn = document.getElementById('bgmToggle');
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      if (isBGMPlaying) {
+        isBGMPlaying = false;
+        clearInterval(bgmInterval);
+        btn.classList.remove('bg-pastel-pink', 'text-white');
+        btn.classList.add('bg-white', 'text-slate-700');
+      } else {
+        isBGMPlaying = true;
+        btn.classList.add('bg-pastel-pink', 'text-white');
+        btn.classList.remove('bg-white', 'text-slate-700');
+        playCuteMelody();
+      }
+    }
+
+    function playNote(freq, duration = 0.3, type = 'sine') {
+      if (!audioCtx || !isBGMPlaying) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playCuteMelody() {
+      const notes = [261.63, 329.63, 392.00, 523.25, 440.00, 349.23, 392.00, 329.63]; // Cute C Major Scale
+      let step = 0;
+      bgmInterval = setInterval(() => {
+        if (!isBGMPlaying) return;
+        playNote(notes[step % notes.length], 0.4, 'triangle');
+        step++;
+      }, 500);
+    }
+  </script>
+
+  <script>
+    // Map Dimensions
+    const MAP_WIDTH = 2200;
+    const MAP_HEIGHT = 1600;
+
+    // Default Initial Neighborhood Data
+    const DEFAULT_HOUSES = [
+      {
+        id: 'rumah-1',
+        title: 'Rumah Syifa (Kenangan Utama)',
+        category: 'rumah',
+        icon: '💒',
+        x: 650,
+        y: 600,
+        description: 'Rumah tempat kumpul paling sering! Banyak kenangan masak bareng, nonton film sampai larut malam, dan ngobrol tak henti-henti.',
+        images: [
+          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=800&q=80'
+        ],
+        video: 'https://www.w3schools.com/html/mov_bbb.mp4',
+        likes: 12
+      },
+      {
+        id: 'rumah-2',
+        title: 'Kedai Kopi Unyu',
+        category: 'cafe',
+        icon: '☕',
+        x: 1050,
+        y: 520,
+        description: 'Tempat langganan beli boba dan es kopi susu gula aren pas sore-sore. Tempat cerita gosip terupdate!',
+        images: [
+          'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&q=80'
+        ],
+        likes: 8
+      },
+      {
+        id: 'spot-1',
+        title: 'Taman Bunga Senja',
+        category: 'spot',
+        icon: '🌸',
+        x: 1350,
+        y: 850,
+        description: 'Spot paling bagus buat foto polaroid dan piknik sore. Bunganya selalu bermekaran indah.',
+        images: [
+          'https://images.unsplash.com/photo-1588880331179-bc9b93a8cb5e?auto=format&fit=crop&w=800&q=80'
+        ],
+        likes: 15
+      },
+      {
+        id: 'rumah-3',
+        title: 'Rumah Kucing Meow',
+        category: 'rumah',
+        icon: '🐱',
+        x: 450,
+        y: 1000,
+        description: 'Rumah dengan banyak kucing lucu yang ramah. Sering disinggahi anak-anak komplek.',
+        images: [
+          'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=800&q=80'
+        ],
+        likes: 20
+      },
+      {
+        id: 'rumah-4',
+        title: 'Rumah Pohon Rahasia',
+        category: 'spot',
+        icon: '🏡',
+        x: 1550,
+        y: 400,
+        description: 'Tempat berteduh pas lagi hujan sambil dengarin lagu-lagu santai.',
+        images: [
+          'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80'
+        ],
+        likes: 5
+      }
+    ];
+
+    // State Variables
+    let houses = [];
+    let activeFilter = 'all';
+    let searchQuery = '';
+    let selectedHouseId = null;
+    let isPlacingMode = false;
+    let pendingCoords = null;
+
+    // Viewport Transformation State
+    let scale = 0.8;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    // Canvas Element
+    const canvas = document.getElementById('mapCanvas');
+    const ctx = canvas.getContext('2d');
+    const viewport = document.getElementById('mapViewport');
+    const mapWorld = document.getElementById('mapWorld');
+    const pinsContainer = document.getElementById('pinsContainer');
+
+    window.addEventListener('load', () => {
+      lucide.createIcons();
+      loadHouseData();
+      initCanvasSize();
+      centerMapToMiddle();
+      renderCanvasMap();
+      renderHousePins();
+      setupEventListeners();
+    });
+
+    function loadHouseData() {
+      const saved = localStorage.getItem('cute_neighborhood_houses');
+      if (saved) {
+        try {
+          houses = JSON.parse(saved);
+        } catch (e) {
+          houses = [...DEFAULT_HOUSES];
+        }
+      } else {
+        houses = [...DEFAULT_HOUSES];
+        saveHouseData();
+      }
+    }
+
+    function saveHouseData() {
+      localStorage.setItem('cute_neighborhood_houses', JSON.stringify(houses));
+    }
+
+    function initCanvasSize() {
+      canvas.width = MAP_WIDTH;
+      canvas.height = MAP_HEIGHT;
+      mapWorld.style.width = MAP_WIDTH + 'px';
+      mapWorld.style.height = MAP_HEIGHT + 'px';
+    }
+
+    function centerMapToMiddle() {
+      const viewportWidth = viewport.clientWidth;
+      const viewportHeight = viewport.clientHeight;
+      scale = Math.min(viewportWidth / (MAP_WIDTH * 0.7), 0.85);
+      panX = (viewportWidth - MAP_WIDTH * scale) / 2;
+      panY = (viewportHeight - MAP_HEIGHT * scale) / 2;
+      applyTransform();
+    }
+
+    function applyTransform() {
+      mapWorld.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    }
+
+    /* Render Cute Canvas Map Graphics (Roads, Lakes, Trees, Parks) */
+    function renderCanvasMap() {
+      ctx.clearRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+
+      // Grass Background Base
+      ctx.fillStyle = '#E2F0CB';
+      ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+
+      // Draw Soft Grass Texture Stripes / Checkers
+      ctx.fillStyle = '#D4E7B5';
+      const tileSize = 100;
+      for (let x = 0; x < MAP_WIDTH; x += tileSize * 2) {
+        for (let y = 0; y < MAP_HEIGHT; y += tileSize * 2) {
+          ctx.fillRect(x, y, tileSize, tileSize);
+          ctx.fillRect(x + tileSize, y + tileSize, tileSize, tileSize);
+        }
+      }
+
+      // Draw Main Cute Pond / Lake
+      ctx.fillStyle = '#B5EAD7';
+      ctx.beginPath();
+      ctx.ellipse(1350, 950, 240, 160, Math.PI / 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#92DFC8';
+      ctx.lineWidth = 12;
+      ctx.stroke();
+
+      // Duck / Water Lily Details on Lake
+      ctx.font = '28px sans-serif';
+      ctx.fillText('🪷', 1300, 930);
+      ctx.fillText('🦆', 1420, 970);
+
+      // Draw Neighborhood Roads (Warm Cream Colored Paths)
+      ctx.strokeStyle = '#FFF9E6';
+      ctx.lineWidth = 90;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // Road Outline Shadow
+      ctx.shadowColor = 'rgba(210, 180, 160, 0.3)';
+      ctx.shadowBlur = 10;
+
+      // Horizontal Main Road
+      ctx.beginPath();
+      ctx.moveTo(100, 650);
+      ctx.lineTo(1900, 650);
+      ctx.stroke();
+
+      // Vertical Loop Roads
+      ctx.beginPath();
+      ctx.moveTo(650, 200);
+      ctx.lineTo(650, 1300);
+      ctx.lineTo(1550, 1300);
+      ctx.lineTo(1550, 350);
+      ctx.lineTo(1100, 350);
+      ctx.lineTo(1100, 850);
+      ctx.stroke();
+
+      // Reset Shadow
+      ctx.shadowColor = 'transparent';
+
+      // Road Dash Center Lines
+      ctx.strokeStyle = '#FFE0B2';
+      ctx.lineWidth = 6;
+      ctx.setLineDash([20, 20]);
+      
+      ctx.beginPath();
+      ctx.moveTo(100, 650);
+      ctx.lineTo(1900, 650);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(650, 200);
+      ctx.lineTo(650, 1300);
+      ctx.lineTo(1550, 1300);
+      ctx.lineTo(1550, 350);
+      ctx.lineTo(1100, 350);
+      ctx.lineTo(1100, 850);
+      ctx.stroke();
+
+      ctx.setLineDash([]); // Reset line dash
+
+      // Draw Cute Trees and Deco Assets around the map
+      drawTreesAndFlowers();
+    }
+
+    function drawTreesAndFlowers() {
+      const decorationPositions = [
+        { x: 300, y: 300, icon: '🌳' }, { x: 400, y: 250, icon: '🌲' },
+        { x: 800, y: 300, icon: '🌸' }, { x: 950, y: 220, icon: '🌳' },
+        { x: 250, y: 800, icon: '🌻' }, { x: 350, y: 1200, icon: '🌳' },
+        { x: 850, y: 1100, icon: '🌸' }, { x: 1050, y: 1250, icon: '🌷' },
+        { x: 1700, y: 700, icon: '🌳' }, { x: 1800, y: 900, icon: '🌲' },
+        { x: 1200, y: 200, icon: '💐' }, { x: 1400, y: 220, icon: '🌸' }
+      ];
+
+      ctx.font = '36px sans-serif';
+      decorationPositions.forEach(deco => {
+        ctx.fillText(deco.icon, deco.x, deco.y);
+      });
+    }
+
+    function renderHousePins() {
+      pinsContainer.innerHTML = '';
+
+      const filtered = houses.filter(house => {
+        const matchesFilter = activeFilter === 'all' || house.category === activeFilter;
+        const matchesSearch = house.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                              house.description.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesFilter && matchesSearch;
+      });
+
+      filtered.forEach(house => {
+        const pinEl = document.createElement('div');
+        pinEl.className = 'absolute pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group';
+        pinEl.style.left = house.x + 'px';
+        pinEl.style.top = house.y + 'px';
+        pinEl.id = `pin-${house.id}`;
+
+        pinEl.innerHTML = `
+          <div onclick="openMemoryModal('${house.id}')" class="relative flex flex-col items-center">
+            
+            <!-- Cute Tooltip on Hover -->
+            <div class="opacity-0 group-hover:opacity-100 transition-all duration-200 transform group-hover:-translate-y-2 pointer-events-none absolute -top-12 bg-white text-slate-800 font-bold text-xs px-3 py-1.5 rounded-2xl shadow-lg border-2 border-pastel-pink whitespace-nowrap z-30 tooltip-arrow">
+              ${house.title}
+            </div>
+
+            <!-- Glowing Pulse effect -->
+            <div class="absolute inset-0 rounded-full bg-pastel-pink/40 animate-ping opacity-75"></div>
+
+            <!-- Main Pin Badge -->
+            <div class="w-14 h-14 bg-white rounded-3xl border-4 border-pastel-pinkLight shadow-cute flex items-center justify-center text-2xl transition-all duration-300 group-hover:scale-125 group-hover:rotate-6 group-hover:border-pastel-pink z-10">
+              ${house.icon || '🏠'}
+            </div>
+
+            <!-- Pin Bottom Shadow Point -->
+            <div class="w-4 h-2 bg-slate-800/20 rounded-full mt-1 blur-[1px]"></div>
+          </div>
+        `;
+
+        pinsContainer.appendChild(pinEl);
+      });
+    }
+
+    function setFilter(category) {
+      activeFilter = category;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.dataset.filter === category) {
+          btn.className = 'filter-btn active px-3 py-1.5 rounded-2xl text-xs font-bold transition-all bg-pastel-pink text-white shadow-cute-sm';
+        } else {
+          btn.className = 'filter-btn px-3 py-1.5 rounded-2xl text-xs font-bold transition-all bg-pastel-pinkLight text-slate-600 hover:bg-pastel-pink/20';
+        }
+      });
+      renderHousePins();
+    }
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      renderHousePins();
+    });
+
+    function setupEventListeners() {
+      // Dragging viewport logic
+      viewport.addEventListener('mousedown', (e) => {
+        if (isPlacingMode) return;
+        isDragging = true;
+        startX = e.clientX - panX;
+        startY = e.clientY - panY;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        panX = e.clientX - startX;
+        panY = e.clientY - startY;
+        applyTransform();
+      });
+
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      // Mouse Wheel Zoom
+      viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+        zoomMapAt(zoomFactor, e.clientX, e.clientY);
+      }, { passive: false });
+
+      // Handle Clicking Canvas in "Add House Mode"
+      mapWorld.addEventListener('click', (e) => {
+        if (!isPlacingMode) return;
+        
+        // Calculate click coords on map world
+        const rect = mapWorld.getBoundingClientRect();
+        const clickX = (e.clientX - rect.left) / scale;
+        const clickY = (e.clientY - rect.top) / scale;
+
+        pendingCoords = { x: Math.round(clickX), y: Math.round(clickY) };
+        openAddHouseModal();
+      });
+    }
+
+    function zoomMap(delta) {
+      const newScale = Math.min(Math.max(scale + delta, 0.4), 1.8);
+      scale = newScale;
+      applyTransform();
+    }
+
+    function zoomMapAt(factor, clientX, clientY) {
+      const newScale = Math.min(Math.max(scale * factor, 0.4), 1.8);
+      const viewportRect = viewport.getBoundingClientRect();
+      const mouseX = clientX - viewportRect.left;
+      const mouseY = clientY - viewportRect.top;
+
+      panX = mouseX - (mouseX - panX) * (newScale / scale);
+      panY = mouseY - (mouseY - panY) * (newScale / scale);
+      scale = newScale;
+
+      applyTransform();
+    }
+
+    function resetMapTransform() {
+      centerMapToMiddle();
+    }
+
+    function openMemoryModal(houseId) {
+      selectedHouseId = houseId;
+      const house = houses.find(h => h.id === houseId);
+      if (!house) return;
+
+      document.getElementById('modalTitle').innerText = house.title;
+      document.getElementById('modalIcon').innerText = house.icon || '🏠';
+      document.getElementById('modalDescription').innerText = house.description;
+      document.getElementById('modalLikesCount').innerText = `${house.likes || 0} Sukai`;
+      document.getElementById('modalCoords').innerText = `Koordinat: ${house.x}, ${house.y}`;
+
+      // Badge Category
+      const tagEl = document.getElementById('modalTag');
+      tagEl.innerText = house.category === 'rumah' ? '🏠 Rumah' : house.category === 'cafe' ? '☕ Cafe' : '🌸 Spot';
+
+      // Render Photo Gallery (Polaroid Style)
+      const galleryEl = document.getElementById('modalGallery');
+      galleryEl.innerHTML = '';
+
+      const images = house.images && house.images.length > 0 ? house.images : ['https://images.unsplash.com/photo-1512917774080-9991f1c4c750'];
+      
+      images.forEach((imgUrl, index) => {
+        const polaroid = document.createElement('div');
+        polaroid.className = 'snap-center shrink-0';
+        polaroid.innerHTML = `
+          <div class="polaroid-frame rounded-2xl w-56">
+            <img src="${imgUrl}" alt="Foto Kenangan" class="w-full h-40 object-cover rounded-xl" onerror="this.src='https://placehold.co/400x300/FFB7B2/FFF?text=Kenangan+Manis'">
+            <p class="text-center font-bold text-xs text-slate-600 mt-3">Kenangan #${index + 1} 💖</p>
+          </div>
+        `;
+        galleryEl.appendChild(polaroid);
+      });
+
+      // Video Section setup
+      const videoSection = document.getElementById('modalVideoSection');
+      const videoEl = document.getElementById('modalVideo');
+      const videoSource = document.getElementById('modalVideoSource');
+
+      if (house.video) {
+        videoSection.classList.remove('hidden');
+        videoSource.src = house.video;
+        videoEl.load();
+      } else {
+        videoSection.classList.add('hidden');
+      }
+
+      // Show Modal
+      const modal = document.getElementById('memoryModal');
+      const modalCard = document.getElementById('modalCard');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      modalCard.classList.remove('scale-90');
+      modalCard.classList.add('scale-100');
+    }
+
+    function closeMemoryModal() {
+      const modal = document.getElementById('memoryModal');
+      const modalCard = document.getElementById('modalCard');
+      
+      modalCard.classList.remove('scale-100');
+      modalCard.classList.add('scale-90');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+
+      // Pause Video
+      const videoEl = document.getElementById('modalVideo');
+      if (videoEl) videoEl.pause();
+    }
+
+    function toggleLikeCurrentHouse() {
+      if (!selectedHouseId) return;
+      const house = houses.find(h => h.id === selectedHouseId);
+      if (house) {
+        house.likes = (house.likes || 0) + 1;
+        document.getElementById('modalLikesCount').innerText = `${house.likes} Sukai`;
+        saveHouseData();
+      }
+    }
+
+    function deleteCurrentHouse() {
+      if (!selectedHouseId) return;
+      if (confirm('Apakah kamu yakin ingin menghapus tempat kenangan ini?')) {
+        houses = houses.filter(h => h.id !== selectedHouseId);
+        saveHouseData();
+        renderHousePins();
+        closeMemoryModal();
+      }
+    }
+
+    function toggleAddHouseMode() {
+      isPlacingMode = true;
+      document.getElementById('placementBanner').classList.remove('hidden');
+      viewport.classList.add('placing-mode');
+    }
+
+    function cancelAddHouseMode() {
+      isPlacingMode = false;
+      document.getElementById('placementBanner').classList.add('hidden');
+      viewport.classList.remove('placing-mode');
+    }
+
+    function openAddHouseModal() {
+      cancelAddHouseMode();
+      const modal = document.getElementById('addHouseModal');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+    }
+
+    function closeAddHouseModal() {
+      const modal = document.getElementById('addHouseModal');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+      document.getElementById('addHouseForm').reset();
+    }
+
+    function saveNewHouse(event) {
+      event.preventDefault();
+      if (!pendingCoords) return;
+
+      const title = document.getElementById('newTitle').value;
+      const category = document.getElementById('newCategory').value;
+      const icon = document.getElementById('newIcon').value;
+      const description = document.getElementById('newDescription').value;
+      const rawImages = document.getElementById('newImageUrls').value;
+      const videoUrl = document.getElementById('newVideoUrl').value;
+
+      const images = rawImages ? rawImages.split(',').map(s => s.trim()) : [];
+
+      const newHouse = {
+        id: 'house-' + Date.now(),
+        title,
+        category,
+        icon,
+        x: pendingCoords.x,
+        y: pendingCoords.y,
+        description,
+        images,
+        video: videoUrl || null,
+        likes: 1
+      };
+
+      houses.push(newHouse);
+      saveHouseData();
+      renderHousePins();
+      closeAddHouseModal();
+      openMemoryModal(newHouse.id);
+    }
+  </script>
+</body>
+</html>
